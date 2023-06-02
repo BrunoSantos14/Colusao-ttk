@@ -41,12 +41,10 @@ class EstudoCola(ttk.Frame):
         self.frame_tres_botoes = ttk.Frame()
         
 
-        label = ttk.Label(self,
-                          text="Informe o ano e o ID do módulo para começar o estudo!")
+        label = ttk.Label(self, text="Informe o ano e o ID do módulo para começar o estudo!")
         label.config(font=('TkDefaultFont', 10, 'bold'))
         label.pack()
         ttk.Separator(self).pack(fill=X)
-
 
         self.frame_segmentacao.pack()
         self.create_combobox(frame=self.frame_segmentacao, 
@@ -84,11 +82,10 @@ class EstudoCola(ttk.Frame):
         cola = Colas(self.ano)
         self.lista_cola, rodada_min, rodada_max = cola.listar_colas(self.tabela_filtrada)
 
-        # # Encontrando informações das rodadas
+        # Encontrando informações das rodadas
         self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
         self.info_rodadas(self.frame_info_rodadas, rodada_min, rodada_max)
         
-
         # Montando tabelas resumo
         resum = cola.lista_cola_resum(self.lista_cola)
         analitos = cola.filtrar_analitos(self.lista_cola)
@@ -111,12 +108,6 @@ class EstudoCola(ttk.Frame):
                                   action=self.tela_detalhes,
                                   tooltip_message='Mala Direta e Lista de Cola',
                                   position=0)
-        # self.create_final_buttons(frame=self.frame_tres_botoes,
-        #                           reset=False,
-        #                           text='Detalhes',
-        #                           action=self.lista_cola_completa,
-        #                           tooltip_message='Lista completa dos participantes\ncom suas respectivas colas',
-        #                           position=1)
         self.create_final_buttons(frame=self.frame_tres_botoes,
                                   reset=False,
                                   text='Relatório',
@@ -201,6 +192,9 @@ class EstudoCola(ttk.Frame):
                           text='Labs em Cola',
                           value=round(100*qtd_parts_cola/qtd_parts, 1),
                           position=1)
+        
+        # Ler e salvar informações em atributos
+        self.abrir_mala_direta()
         
     def montar_tabela(self, frame, reset, df, position):
         if reset:
@@ -309,19 +303,20 @@ class EstudoCola(ttk.Frame):
             cola_filtrada = cola_filtrada.loc[cola_filtrada['Grupos'] == grupos]
             mala_filtrada = mala_filtrada.loc[mala_filtrada['ID'].isin(list(cola_filtrada['Cliente'].unique()))]
             mala_filtrada.sort_values('ID', inplace=True)
+            self.grupos_filtro.set('')
 
         return mala_filtrada, cola_filtrada
 
     def tela_detalhes(self):
-        # Fechar o app se estiver aberto
+        # Fechar o toplevel se já estiver aberto
         global app2
         if app2 and app2.winfo_exists():
             app2.withdraw()
+        
 
         app2 = ttk.Toplevel(title='Detalhes do Estudo')
         app2.geometry('+500+50')
 
-        self.abrir_mala_direta()
         mala_filtrada, cola_filtrada = self.filtrar_segunda_pagina()
 
         # Criar filtro para os grupos
@@ -331,7 +326,7 @@ class EstudoCola(ttk.Frame):
                             values=self.grupos_encontrados,
                             label='Grupos: ',
                             variable=self.grupos_filtro)
-        
+    
         frame_botao = ttk.Frame(app2)
         frame_botao.pack()
         self.create_buttonbox(frame=frame_botao,
@@ -361,9 +356,6 @@ class EstudoCola(ttk.Frame):
         app2.mainloop()
 
     def abrir_mala_direta(self):
-        self.clientes_encontrados = list(self.lista_cola['Cliente'].unique())
-        self.grupos_encontrados = list(self.lista_cola['Grupos'].unique())
-
         # Chamando a mala direta
         mala_direta = pd.read_csv('//Pastor/analytics/MalaDireta.csv', sep=';', encoding='latin1')
         mala_direta = mala_direta[['ID', 'Nome fantasia', 'Grupo representação', 'Grupo empresarial', 'País', 'UF', 'Cidade', 'Bairro', 'Ativo Geral']]
@@ -371,10 +363,10 @@ class EstudoCola(ttk.Frame):
         for coluna in ['Nome fantasia', 'Grupo representação', 'Grupo empresarial', 'País', 'UF', 'Cidade', 'Bairro', 'Ativo Geral']:
             mala_direta[coluna].fillna('-', inplace=True)
 
-        self.mala_direta = mala_direta.loc[mala_direta['ID'].isin(self.clientes_encontrados)]
+        self.clientes_encontrados = list(self.lista_cola['Cliente'].unique())
+        self.grupos_encontrados = list(self.lista_cola['Grupos'].unique())
 
-        self.mala_filtrada = self.mala_direta.copy()
-        self.cola_filtrada = self.lista_cola.copy()
+        self.mala_direta = mala_direta.loc[mala_direta['ID'].isin(self.clientes_encontrados)]
 
 
     # def lista_cola_completa(self):
@@ -399,5 +391,4 @@ if __name__ == "__main__":
     app.geometry('+40+20')
     EstudoCola(app)
     app.mainloop()
-
 
