@@ -3,6 +3,7 @@ import pandas as pd
 import ttkbootstrap as ttk
 from ttkbootstrap import Style
 from ttkbootstrap.constants import *
+from ttkbootstrap.scrolled import ScrolledText
 # from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.tableview import Tableview
 # from ttkbootstrap.validation import add_regex_validation
@@ -13,13 +14,15 @@ import os
 
 hoje = datetime.now()
 app2 = None
+app3 = None
+
 
 class EstudoCola(ttk.Frame):
     def __init__(self, master_window):
         super().__init__(master_window, padding=(20, 10))
         self.pack(fill=BOTH, expand=YES)
         self.caminho = '//Pastor/analytics/Dados/DadosEP/Ano'
-        self.name = ttk.StringVar(value="")
+        self.nome = ttk.StringVar(value="")
         self.rodada_min = ttk.StringVar(value="")
         self.rodada_max = ttk.StringVar(value="")
         self.ano = ttk.StringVar(value="")
@@ -91,14 +94,15 @@ class EstudoCola(ttk.Frame):
         analitos = cola.filtrar_analitos(self.lista_cola)
 
         self.frame_tabela_resumo.pack()
+        self.grupos_a_cadastrar = self.montar_tabela(frame=self.frame_tabela_resumo,
+                                                     reset=True,
+                                                     df=resum,
+                                                     position=0)
+                                    
         self.montar_tabela(frame=self.frame_tabela_resumo,
-                                  reset=True,
-                                  df=resum,
-                                  position=0)
-        self.montar_tabela(frame=self.frame_tabela_resumo,
-                                  reset=False,
-                                  df=analitos,
-                                  position=1)
+                           reset=False,
+                           df=analitos,
+                           position=1)
         
         # Criação dos 3 botões finais
         self.frame_tres_botoes.pack()
@@ -205,6 +209,7 @@ class EstudoCola(ttk.Frame):
         df = Tableview(frame,
                         coldata=col,
                         rowdata=row,
+                        paginated=False,
                         searchable=True,
                         bootstyle=DARK,
                         height=15,
@@ -212,6 +217,7 @@ class EstudoCola(ttk.Frame):
                         autofit=True,
                         )
         df.grid(row=0, column=position, padx=5, pady=5)
+        return df
 
     def create_meter(self, frame, reset, text, value, position):
         if reset:
@@ -368,12 +374,92 @@ class EstudoCola(ttk.Frame):
 
         self.mala_direta = mala_direta.loc[mala_direta['ID'].isin(self.clientes_encontrados)]
 
-
-    # def lista_cola_completa(self):
-    #     pass
-
     def pagina_relatorio(self):
-        pass
+        grupos = [i.values[0] for i in self.grupos_a_cadastrar.tablerows]
+
+        # Fechar o toplevel se já estiver aberto
+        global app3
+        if app3 and app3.winfo_exists():
+            app3.withdraw()
+        
+
+        app3 = ttk.Toplevel(title='Gerar Relatório')
+        app3.geometry('+300+50')
+
+        # Mensagem inicial
+        label = ttk.Label(app3, text="Informe os dados para o relatório final")
+        label.config(font=('TkDefaultFont', 10, 'bold'))
+        label.pack(fill=X, expand=YES, pady=5)
+        ttk.Separator(app3).pack(fill=X, pady=5)
+
+        # Pedindo o nome do usuário
+        frame_nome = ttk.Frame(app3)
+        frame_nome.pack(fill=X, expand=YES, pady=5)
+        label = ttk.Label(master=frame_nome,
+                          text='Responsável pelo estudo: ')
+        label.pack(side=LEFT, padx=12)
+        nome = ttk.Entry(frame_nome,
+                         width=40,
+                         textvariable=self.nome)
+        nome.pack(side=LEFT, padx=5, expand=YES)
+
+        # Inserindo label de grupos cadastrados
+        frame_cadastrados = ttk.Frame(app3)
+        frame_cadastrados.pack()
+
+        label = ttk.Label(master=frame_cadastrados,
+                          text='Grupos Cadastrados: ')
+        label.pack(side=LEFT, padx=12)
+        self.cadastrados = ScrolledText(frame_cadastrados,
+                                   padding=10,
+                                   height=7,
+                                   width=60)
+        self.cadastrados.insert(END, '\n'.join(grupos))
+        self.cadastrados.pack(side=LEFT, padx=5, expand=YES)
+
+        # Inserindo label de grupos a retirar
+        frame_retirados = ttk.Frame(app3)
+        frame_retirados.pack()
+        label = ttk.Label(master=frame_retirados,
+                          text='Grupos Retirados: ')
+        label.pack(side=LEFT, padx=12)
+        self.retirados = ScrolledText(frame_retirados,
+                                 padding=10,
+                                 height=7,
+                                 width=60)
+        self.retirados.pack(side=LEFT, padx=5, expand=YES)
+
+        # Criando botão para gerar o relatório final
+        frame_botao = ttk.Frame(app3)
+        frame_botao.pack(fill=X, expand=YES, pady=5)
+
+        botao_relatorio = ttk.Button(
+                          master=frame_botao,
+                          text="Gerar Relatório",
+                          command=self.gerar_relatorio,
+                          bootstyle=SUCCESS,
+                          width=20,
+        )
+
+        botao_relatorio.pack(side=BOTTOM, padx=5)
+        CreateToolTip(botao_relatorio, 'Gerar o relatório final em PDF\ne salvar no diretório analytics')
+
+        app3.mainloop()
+
+    def gerar_relatorio(self):
+        path = f''
+        resp = self.nome.get()
+        id_mod = int(self.id_modulo.get())
+        modulo = self.modulo
+        selecionados = self.cadastrados.get("1.0", ttk.END)
+        retirados = self.retirados.get("1.0", ttk.END)
+        print(resp, id_mod, modulo, selecionados, retirados)
+
+        # modelo = ModeloColusao(path, resp, id_mod, modulo, analise, colusao,
+        #                    investigados, selecionados, cadastrado, retirados)
+        # path = os.getcwd()+'\Modelo.docx'
+        # modelo.salvar('Relatório', 'data', app='libreoffice')
+        
 
 
     def on_cancel(self):
