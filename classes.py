@@ -1,28 +1,30 @@
 import pandas as pd
 from docx import Document
 import datetime as dt
+import locale
 import os
 import win32com.client
 from subprocess import Popen
 import tkinter as tk
 
+def data_br(x):
+    """Transforma string 'mmm/yyyy' (pt-br) em data."""
+    locale.setlocale(locale.LC_TIME, 'pt-BR.utf8')
+    return dt.datetime.strptime(x, '%b/%Y')
 
 def criar_col_item(df):
     """Retorna uma tupla de 3 elementos, com o dataframe adicionado de uma coluna informando o item
     (ano + rodada + num_item), além da rodada inicial e rodada final."""
     df = df.copy(deep=True)  # Para evitar warnings no código
+
     # Mudando formatação para data e criando colunas Ano e Mes
-    dic_meses = {'Jan': '1', 'Fev': '2', 'Mar': '3', 'Abr': '4', 'Mai': '5', 'Jun': '6', 'Jul': '7', 'Ago': '8',
-                    'Set': '9', 'Out': '10', 'Nov': '11', 'Dez': '12'}
-
-    df['NOME_ENVIO'] = df['NOME_ENVIO'].apply(lambda x: x.replace(x[0:3], dic_meses[x[0:3]]))
-    df['NOME_ENVIO'] = pd.to_datetime(df['NOME_ENVIO'], format='%m/%Y')
-
-    rodada_min = min(df['NOME_ENVIO'])  # Selecionando menor data (será colocado no df final)
-    rodada_max = max(df['NOME_ENVIO'])  # Selecionando maior data (será colocado no df final)
+    df['NOME_ENVIO'] = df['NOME_ENVIO'].apply(data_br)
 
     df['Ano'] = df['NOME_ENVIO'].dt.year  # Criando uma coluna de ano
     df['Mes'] = df['NOME_ENVIO'].dt.month  # Criando uma coluna de mês
+
+    rodada_min = min(df['NOME_ENVIO'])  # Selecionando menor data (será colocado no df final)
+    rodada_max = max(df['NOME_ENVIO'])  # Selecionando maior data (será colocado no df final)
 
     # Criando a coluna Rodada
     df.loc[df['Mes'].isin([10, 11, 12]), 'RODADA'] = '1'
@@ -32,13 +34,13 @@ def criar_col_item(df):
 
     # Deixando a coluna Ano apenas com dois dígitos
     df.loc[df['RODADA'] == '1', 'Ano'] += 1  # Colocando itens da primeira rodada para o próximo ano
-    df['Ano'] = df['Ano'].astype(str).apply(lambda x: x[-2:])
+    df['Ano'] = df['Ano'].apply(lambda x: str(x)[-2:])
 
     # Criando a coluna ITEM (as linhas vão virar colunas)
     df['NUM_ITEM'] = df.NUM_ITEM.astype(str)
     df['ITEM'] = 'A' + df['Ano'] + 'R' + df['RODADA'] + 'I' + df['NUM_ITEM']
 
-    df = df.drop(columns=['Ano', 'Mes', 'RODADA'], axis=1)
+    df.drop(columns=['Ano', 'Mes', 'RODADA'], axis=1, inplace=True)
     return df, rodada_min, rodada_max
 
 
@@ -58,7 +60,6 @@ class Colas:
         df.columns = ['Cliente', 'MODULO', 'Analito', 'NOME_ENVIO', 'NUM_ITEM', 'VALOR', 'ITEM']
 
         # Mantendo um valor por participante em cada rodada
-        df = df.copy(deep=True)
         df['VALOR'] = pd.to_numeric(df['VALOR'])
         df['VALOR'] = df.groupby(['Cliente', 'MODULO', 'Analito', 'ITEM'])['VALOR'].transform('median')
         df.drop_duplicates(subset=['Cliente', 'MODULO', 'Analito', 'ITEM'],
@@ -75,7 +76,7 @@ class Colas:
             index=['Cliente', 'MODULO', 'Analito'],
             columns='ITEM',
         )
-        df = df.reset_index()
+        df.reset_index(inplace=True)
 
         # Filtrando apenas 60% de resultados reportados por participante
         qtd_colunas = len(df.columns) - 3
@@ -87,23 +88,21 @@ class Colas:
 
         if len(df) == 0:
             # return pd.DataFrame({'Conclusão': ['Ninguém com mais de 60% preenchido']})
-            return 'Ninguém com mais de 60% preenchido'
+            return 'Ninguém com mais de 60% preenchido', rodada_min, rodada_max
 
         # Contando quantos dados de cada analito existem. Filtrando para 3 dados ou mais por analito
-        for analito in list(df['Analito'].unique()):
-            df.loc[df['Analito'] == analito, 'QTD_dados'] = len(df.loc[df['Analito'] == analito])
+        df['QTD_dados'] = df.groupby(['MODULO', 'Analito'])['Cliente'].transform('count')
 
-        df = df.loc[df['QTD_dados'] >= 3, :]
-        df = df.drop('QTD_dados', axis=1)
+        df = df.loc[df['QTD_dados'] >= 3]
+        df.drop('QTD_dados', axis=1, inplace=True)
 
         # Mantendo apenas linhas onde os dados são repetidos
-        bool_series = df.duplicated(subset=list(df.columns[1:]), keep=False)
+        bool_series = df.iloc[:, 1:].duplicated(keep=False) #df.duplicated(subset=list(df.columns[1:]), keep=False)
         df = df[bool_series]
 
         # Apenas para não retornar df vazio e não gerar erro
         if len(df) == 0:
-            # return pd.DataFrame({'Conclusão': ['Sem resultados idênticos no ano']})
-            return 'Sem resultados idênticos no ano'
+            return 'Sem resultados idênticos no ano', rodada_min, rodada_max
 
         # Colocando as colas uma embaixo da outra
         df.sort_values(by=list(df.columns[1:]) + ['Cliente'], ascending=True, inplace=True)
@@ -115,9 +114,9 @@ class Colas:
         df['Cliente'] = df.Cliente.astype(str)
         df.fillna('', inplace=True)
 
-        colunas_itens = [i for i in df.columns if str(self.ano)[:-2] in i]
-        for coluna in colunas_itens:
-            df[coluna] = pd.to_numeric(df[coluna])
+        # colunas_itens = [i for i in df.columns if str(self.ano)[:-2] in i]
+        # for coluna in colunas_itens:
+        #     df[coluna] = pd.to_numeric(df[coluna])
             # df[coluna].fillna(np.nan, inplace=True)
 
         aux = df.groupby(by=list(df.columns[1:-2]))['Cliente'].agg(lambda col: ' - '.join(col)).reset_index()
@@ -125,13 +124,23 @@ class Colas:
         df = df.merge(aux, on=list(df.columns[1:-2]), suffixes=("", "_x"))
         df.rename(columns={'Cliente_x': 'Grupos'}, inplace=True)
 
-        df['Cliente'] = pd.to_numeric(df['Cliente'])#.astype(str).str.replace(',', '')
+        df['Cliente'] = pd.to_numeric(df['Cliente'])
         return df, rodada_min, rodada_max
+    
+    def obter_todas_colas(self, df):
+        dfs = []
+        for id_mod in df['ID_MODULO'].unique():
+            aux = df.loc[df['ID_MODULO']==id_mod]
+            lista_cola, rodada_min, rodada_max = self.listar_colas(aux)
+            if type(lista_cola) == pd.core.frame.DataFrame:
+                dfs.append((id_mod, rodada_min, rodada_max, lista_cola))
+        return dfs
 
     def lista_cola_resum(self, df):
         df = df[['Grupos', 'Qtd_cola']]
         df = df.drop_duplicates()
-        return df.sort_values(by='Qtd_cola', ascending=False).reset_index(drop=True)
+        df.rename(columns={'Qtd_cola': 'Qtd Cola'}, inplace=True)
+        return df.sort_values(by='Qtd Cola', ascending=False).reset_index(drop=True)
 
     def filtrar_analitos(self, df):
         df = df[['Analito']]
@@ -151,7 +160,7 @@ class ModeloColusao:
         colusao: Exames em Colusão
         investigados: Participantes Investigados
         selecionados: Participantes Selecionados
-        cadastro: Grupos cadastrados
+        cadastrado: Grupos cadastrados
         retirados: Grupos retirados de cadastro
         """    
         self.__doc = Document(path)
@@ -173,9 +182,7 @@ class ModeloColusao:
                  'dezembro']
 
         self.__doc.paragraphs[1].text = self.__doc.paragraphs[1]\
-                                           .text.replace('<dia>',
-                                                         str(dt.datetime.now().day)
-                                                         )
+                                           .text.replace('<dia>', str(dt.datetime.now().day))
 
         self.__doc.paragraphs[1].text = self.__doc.paragraphs[1]\
                                                     .text.replace('<mes>', meses[dt.datetime.now().month-1])

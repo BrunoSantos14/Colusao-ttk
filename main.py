@@ -1,15 +1,13 @@
 from classes import Colas, ModeloColusao, CreateToolTip
 import pandas as pd
 import ttkbootstrap as ttk
-from ttkbootstrap import Style
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
-# from ttkbootstrap.toast import ToastNotification
+from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.tableview import Tableview
-# from ttkbootstrap.validation import add_regex_validation
+from ttkbootstrap.validation import add_regex_validation
 from datetime import datetime
 import os
-# from ttkbootstrap import Style
 
 
 hoje = datetime.now()
@@ -34,7 +32,7 @@ class EstudoCola(ttk.Frame):
         self.mala_direta = pd.DataFrame()
         self.tabela = pd.DataFrame()
         self.tabela_filtrada = pd.DataFrame()
-        self.lista_cola = pd.DataFrame()
+        # self.lista_cola = pd.DataFrame()
         self.colors = master_window.style.colors
         self.frame_segmentacao = ttk.Frame()
         self.frame_botao = ttk.Frame()
@@ -60,9 +58,10 @@ class EstudoCola(ttk.Frame):
                               action=self.label_id_modulo,
                               cancel_action=self.on_cancel,
                               tooltip_message='Clique para informar o Módulo')
-        
+            
 
     def label_id_modulo(self):
+        """Criando combobox de escolha de módulo e botões"""
         self.ler_parquet()
         self.excluir_views_frame(frame=self.frame_botao)
 
@@ -77,84 +76,19 @@ class EstudoCola(ttk.Frame):
                               tooltip_message='Gerar Resumo')
     
     def create_frame_resum(self):
+        """Criando a visualização na tela principal com as informações resumidas e os botões para detalhe 
+        e geração do relatório final (ou mensagem para não cola, se for o caso)."""
+
         # Se o ano mudar, preciso atualizar o parquet
         if self.ano.get() != self.ano:
             self.ler_parquet()
 
         self.tabela_filtrada = self.filtrar_modulo()
+        self.modulo = self.tabela_filtrada['MODULO'].unique()[0]
+        
         cola = Colas(self.ano)
         self.lista_cola, rodada_min, rodada_max = cola.listar_colas(self.tabela_filtrada)
 
-        # Encontrando informações das rodadas
-        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
-        self.info_rodadas(self.frame_info_rodadas, rodada_min, rodada_max)
-        
-        # Montando tabelas resumo
-        resum = cola.lista_cola_resum(self.lista_cola)
-        analitos = cola.filtrar_analitos(self.lista_cola)
-
-        self.frame_tabela_resumo.pack()
-        self.grupos_a_cadastrar = self.montar_tabela(frame=self.frame_tabela_resumo,
-                                                     reset=True,
-                                                     df=resum,
-                                                     position=0)
-                                    
-        self.montar_tabela(frame=self.frame_tabela_resumo,
-                           reset=False,
-                           df=analitos,
-                           position=1)
-        
-        # Criação dos 3 botões finais
-        self.frame_tres_botoes.pack()
-        self.create_final_buttons(frame=self.frame_tres_botoes,
-                                  reset=True,
-                                  text='Detalhes',
-                                  action=self.tela_detalhes,
-                                  tooltip_message='Mala Direta e Lista de Cola',
-                                  position=0)
-        self.create_final_buttons(frame=self.frame_tres_botoes,
-                                  reset=False,
-                                  text='Relatório',
-                                  action=self.pagina_relatorio,
-                                  tooltip_message='Preencha o relatório para terminar o estudo',
-                                  position=1)      
-    
-    def escolher_modulo(self):
-        try:
-            return list(self.tabela['ID_MODULO'].unique())
-        except:
-            return []
-    
-    def escolher_ano(self):
-        arquivos = os.listdir(self.caminho)
-        arquivos = [arquivo[3:7] for arquivo in arquivos]
-        return sorted(set(list(map(int, arquivos))), reverse=True)
-
-    def ler_parquet(self):
-        ano = self.ano.get()
-        try:
-            self.tabela = pd.read_parquet(self.caminho + f'/ep_{ano}.parquet')
-            # self.tabela = self.tabela.loc[self.tabela['METODO_CALCULO'] != 'Qualitativo']
-            return self.tabela
-        except:
-            raise Exception(f"'{ano}' não é um ano válido!")
-
-    def filtrar_modulo(self):
-        id_modulo = self.id_modulo.get()
-        return self.tabela.loc[self.tabela['ID_MODULO'] == id_modulo]
-    
-    def excluir_views_frame(self, frame):
-        [view.destroy() for view in frame.winfo_children()]
-
-    def info_rodadas(self, frame, rodada_min, rodada_max):
-        self.excluir_views_frame(frame)
-        ttk.Separator(frame).pack(fill=X)
-
-        # Encontrando informações gerais
-        self.modulo = self.tabela_filtrada['MODULO'].unique()[0]
-        qtd_exames = len(list(self.tabela_filtrada['NOME_DET'].unique()))
-        qtd_parts = len(list(self.tabela_filtrada['PART'].unique()))
-        
         # Encontrando informações das rodadas
         self.rodada_min = rodada_min.to_pydatetime()
         self.rodada_max = rodada_max.to_pydatetime()
@@ -162,9 +96,117 @@ class EstudoCola(ttk.Frame):
         self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
         self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
 
+        # Encontrando informações do módulo
+        self.qtd_exames = len(list(self.tabela_filtrada['NOME_DET'].unique()))
+        self.qtd_parts = len(list(self.tabela_filtrada['PART'].unique()))
 
-        qtd_exames_cola = len(list(self.lista_cola['Analito'].unique()))
-        qtd_parts_cola = len(self.lista_cola['Cliente'].unique())
+        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
+        if type(self.lista_cola) == pd.core.frame.DataFrame:
+            # Encontrando informações das rodadas
+            self.info_rodadas(self.frame_info_rodadas)
+            
+            # Montando tabelas resumo
+            resum = cola.lista_cola_resum(self.lista_cola)
+            analitos = cola.filtrar_analitos(self.lista_cola)
+
+            self.frame_tabela_resumo.pack()
+            self.grupos_a_cadastrar = self.montar_tabela(frame=self.frame_tabela_resumo,
+                                                        reset=True,
+                                                        df=resum,
+                                                        position=0)
+                                        
+            self.montar_tabela(frame=self.frame_tabela_resumo,
+                            reset=False,
+                            df=analitos,
+                            position=1)
+            
+            # Criação dos 3 botões finais
+            self.frame_tres_botoes.pack()
+            self.create_final_buttons(frame=self.frame_tres_botoes,
+                                    reset=True,
+                                    text='Detalhes',
+                                    action=self.tela_detalhes,
+                                    tooltip_message='Mala Direta e Lista de Cola',
+                                    position=0)
+            self.create_final_buttons(frame=self.frame_tres_botoes,
+                                    reset=False,
+                                    text='Relatório',
+                                    action=self.pagina_relatorio,
+                                    tooltip_message='Preencha o relatório para terminar o estudo',
+                                    position=1)
+
+        else:
+            # Excluindo views dos frames de resumo
+            self.excluir_views_frame(self.frame_info_rodadas)
+            self.excluir_views_frame(self.frame_meter)
+            self.excluir_views_frame(self.frame_tabela_resumo)
+            self.excluir_views_frame(self.frame_tres_botoes)
+            
+            ttk.Separator(self.frame_info_rodadas).pack(fill=X)
+            label = ttk.Label(self.frame_info_rodadas, text=f'{self.modulo}')
+            label.config(font=('TkDefaultFont', 15, 'bold'))
+            label.pack()
+
+            texto = f"""
+            👉 Estudo feito com rodadas de {self.rodada_min} até {self.rodada_max}
+
+            👉 Exames analisados: {self.qtd_exames}     
+
+            👉 Participantes Investigados: {self.qtd_parts}
+            """
+            ttk.Label(self.frame_info_rodadas, 
+                      text=texto,
+                      justify='center').pack()
+
+            label = ttk.Label(self.frame_info_rodadas, text=self.lista_cola)
+            label.config(font=('TkDefaultFont', 10, 'bold'), background='red')
+            label.pack(ipady=5)
+    
+    def escolher_modulo(self):
+        """Encontrando possíveis módulos que o usuário pode selecionar com base no ano informado."""
+        try:
+            return list(self.tabela['ID_MODULO'].unique())
+        except:
+            return []
+    
+    def escolher_ano(self):
+        """Lista os arquivos disponíveis para o estudo de cola. São os arquivos do ano em formato .parquet
+        disponíveis no diretório."""
+        arquivos = os.listdir(self.caminho)
+        arquivos = [arquivo[3:7] for arquivo in arquivos]
+        return sorted(set(list(map(int, arquivos))), reverse=True)
+
+    def ler_parquet(self):
+        """Lê o arquivo .parquet de ano correspondente no diretório e filtra com dados calculados por esstatística robusta pu tradicional,
+        além de manter somente onde o usuário não inseriu resposta."""
+        ano = self.ano.get()
+        try:
+            self.tabela = pd.read_parquet(self.caminho + f'/ep_{ano}.parquet')
+
+            # Aplicando filtros conhecidos
+            self.tabela = self.tabela.loc[
+                (~self.tabela['METODO_CALCULO'].isin(['Qualitativo', 'Boxplot'])) & 
+                (self.tabela['RESPOSTA'].isin(['nan', 'None']))]
+            return self.tabela
+        except:
+            raise Exception(f"'{ano}' não é um ano válido!")
+
+    def filtrar_modulo(self):
+        """Filtra o módulo informado pello usuário."""
+        id_modulo = self.id_modulo.get()
+        return self.tabela.loc[self.tabela['ID_MODULO'] == id_modulo]
+    
+    def excluir_views_frame(self, frame):
+        """Excluir todos os views dentro de um frame para atualização."""
+        [view.destroy() for view in frame.winfo_children()]
+
+    def info_rodadas(self, frame):
+        """Criando parte intermediária com as informações mais relevantes sobre as colas encontradas."""
+        self.excluir_views_frame(frame)
+        ttk.Separator(frame).pack(fill=X)
+
+        self.qtd_exames_cola = len(list(self.lista_cola['Analito'].unique()))
+        self.qtd_parts_cola = len(self.lista_cola['Cliente'].unique())
         
         # Escrevendo o Módulo como Título da Segunda Parte
         label = ttk.Label(frame,
@@ -175,11 +217,11 @@ class EstudoCola(ttk.Frame):
         texto = f"""
         👉 Estudo feito com rodadas de {self.rodada_min} até {self.rodada_max}
 
-        👉 Exames analisados: {qtd_exames}     
-        Exames com Colusão: {qtd_exames_cola} 
+        👉 Exames analisados: {self.qtd_exames}     
+        Exames com Colusão: {self.qtd_exames_cola} 
 
-        👉 Participantes Investigados: {qtd_parts}
-        Participantes em Colusão: {qtd_parts_cola}
+        👉 Participantes Investigados: {self.qtd_parts}
+        Participantes em Colusão: {self.qtd_parts_cola}
         """
         ttk.Label(frame,
                   text=texto,
@@ -189,18 +231,19 @@ class EstudoCola(ttk.Frame):
         self.create_meter(frame=self.frame_meter,
                           reset=True,
                           text='Exames em Cola',
-                          value=round(100*qtd_exames_cola/qtd_exames, 1),
+                          value=round(100*self.qtd_exames_cola/self.qtd_exames, 1),
                           position=0)
         self.create_meter(frame=self.frame_meter,
                           reset=False,
                           text='Labs em Cola',
-                          value=round(100*qtd_parts_cola/qtd_parts, 1),
+                          value=round(100*self.qtd_parts_cola/self.qtd_parts, 1),
                           position=1)
         
         # Ler e salvar informações em atributos
         self.abrir_mala_direta()
         
     def montar_tabela(self, frame, reset, df, position):
+        """Criando as tabelas que vão aparecer no app."""
         if reset:
             self.excluir_views_frame(frame)
         
@@ -220,6 +263,7 @@ class EstudoCola(ttk.Frame):
         return df
 
     def create_meter(self, frame, reset, text, value, position):
+        """Criando os meters que serão usados para gerar informações das colas"""
         if reset:
             self.excluir_views_frame(frame)
 
@@ -236,19 +280,9 @@ class EstudoCola(ttk.Frame):
             textright='%',
         )
         meter.grid(row=0, column=position, padx=5, pady=5)
-        
-    def create_form_entry(self, frame, label, variable):
-        form_field_container = ttk.Frame(frame)
-        form_field_container.pack(fill=X, expand=YES, pady=5)
-
-        form_field_label = ttk.Label(master=form_field_container, text=label, width=15)
-        form_field_label.pack(side=LEFT, padx=12)
-
-        form_input = ttk.Entry(master=form_field_container, textvariable=variable)
-        form_input.pack(side=LEFT, padx=5, fill=X, expand=YES)
-        return form_input
     
-    def create_combobox(self, frame, values, label, variable):       
+    def create_combobox(self, frame, values, label, variable):
+        """Criação dos comboboxs do app."""      
         form_field_container = ttk.Frame(frame)
         form_field_container.pack(fill=X, expand=YES, pady=5)
 
@@ -260,6 +294,7 @@ class EstudoCola(ttk.Frame):
         return form_input
 
     def create_buttonbox(self, frame, action, cancel_action, tooltip_message):       
+        """Criação dos botões de Submit e Cancel."""
         button_container = ttk.Frame(frame)
         button_container.pack(fill=X, expand=YES, pady=(15, 10))
 
@@ -286,6 +321,7 @@ class EstudoCola(ttk.Frame):
         CreateToolTip(submit_btn, tooltip_message)
 
     def create_final_buttons(self, frame, reset, text, action, position, tooltip_message):
+        """Criação dos botões finais (acesso a página de detalhes e relatório)"""
         if reset:
             self.excluir_views_frame(frame)
 
@@ -300,6 +336,7 @@ class EstudoCola(ttk.Frame):
         CreateToolTip(button, tooltip_message)
     
     def filtrar_segunda_pagina(self):
+        """Método que filtra os participantes da tela de detalhes conforme o grupos selecionado pelo usuário."""
         mala_filtrada = self.mala_direta.copy()
         cola_filtrada = self.lista_cola.copy()
 
@@ -314,6 +351,7 @@ class EstudoCola(ttk.Frame):
         return mala_filtrada, cola_filtrada
 
     def tela_detalhes(self):
+        """Criando a página em toplevel que permite visualizar mais detalhes das colas encontradas e informações dos participantes (mala direta)."""
         # Fechar o toplevel se já estiver aberto
         global app2
         if app2 and app2.winfo_exists():
@@ -362,6 +400,7 @@ class EstudoCola(ttk.Frame):
         app2.mainloop()
 
     def abrir_mala_direta(self):
+        """Lendo a mala direta e filtrando com os participantes encontrados no estudo."""
         # Chamando a mala direta
         mala_direta = pd.read_csv('//Pastor/analytics/MalaDireta.csv', sep=';', encoding='latin1')
         mala_direta = mala_direta[['ID', 'Nome fantasia', 'Grupo representação', 'Grupo empresarial', 'País', 'UF', 'Cidade', 'Bairro', 'Ativo Geral']]
@@ -375,6 +414,7 @@ class EstudoCola(ttk.Frame):
         self.mala_direta = mala_direta.loc[mala_direta['ID'].isin(self.clientes_encontrados)]
 
     def pagina_relatorio(self):
+        """Criando a página em toplevel que gera o relatório final em PDF.""" 
         grupos = [i.values[0] for i in self.grupos_a_cadastrar.tablerows]
 
         # Fechar o toplevel se já estiver aberto
@@ -384,12 +424,17 @@ class EstudoCola(ttk.Frame):
         
 
         app3 = ttk.Toplevel(title='Gerar Relatório')
-        app3.geometry('+300+50')
+        app3.geometry('+500+200')
 
         # Mensagem inicial
         label = ttk.Label(app3, text="Informe os dados para o relatório final")
         label.config(font=('TkDefaultFont', 10, 'bold'))
-        label.pack(fill=X, expand=YES, pady=5)
+        label.pack()
+
+        label2 = ttk.Label(app3, text='OBS.: Preencha os campos de grupos com um grupo em cada linha e com os participantes separados por um "-".')
+        # label2.config(font=('TkDefaultFont', 10, 'bold'))
+        label2.pack()
+        
         ttk.Separator(app3).pack(fill=X, pady=5)
 
         # Pedindo o nome do usuário
@@ -402,6 +447,7 @@ class EstudoCola(ttk.Frame):
                          width=40,
                          textvariable=self.nome)
         nome.pack(side=LEFT, padx=5, expand=YES)
+        add_regex_validation(nome, r'[a-zA-Z]')
 
         # Inserindo label de grupos cadastrados
         frame_cadastrados = ttk.Frame(app3)
@@ -411,9 +457,9 @@ class EstudoCola(ttk.Frame):
                           text='Grupos Cadastrados: ')
         label.pack(side=LEFT, padx=12)
         self.cadastrados = ScrolledText(frame_cadastrados,
-                                   padding=10,
-                                   height=7,
-                                   width=60)
+                                        padding=10,
+                                        height=7,
+                                        width=60)
         self.cadastrados.insert(END, '\n'.join(grupos))
         self.cadastrados.pack(side=LEFT, padx=5, expand=YES)
 
@@ -447,20 +493,58 @@ class EstudoCola(ttk.Frame):
         app3.mainloop()
 
     def gerar_relatorio(self):
-        path = f''
-        resp = self.nome.get()
+        path = os.getcwd()+'/Modelo.docx'
+        resp = self.nome.get().title()
         id_mod = int(self.id_modulo.get())
+        ano = int(self.ano.get())
+        nome_arquivo = f'cola_{ano}_{id_mod}'
         modulo = self.modulo
         selecionados = self.cadastrados.get("1.0", ttk.END)
         retirados = self.retirados.get("1.0", ttk.END)
-        print(resp, id_mod, modulo, selecionados, retirados)
+        retirados = '-' if len(retirados)==1 else retirados
 
-        # modelo = ModeloColusao(path, resp, id_mod, modulo, analise, colusao,
-        #                    investigados, selecionados, cadastrado, retirados)
-        # path = os.getcwd()+'\Modelo.docx'
-        # modelo.salvar('Relatório', 'data', app='libreoffice')
-        
+        if resp == "":
+            self.notificacao_falha(message="Erro ao salvar o relatório. Informe o nome do colaborador")
+        else:
+            try:
+                modelo = ModeloColusao(path, resp, id_mod, modulo, self.qtd_exames, self.qtd_exames_cola,
+                                        self.qtd_parts, self.qtd_parts_cola, selecionados, retirados)
+                
+                path_salvar = f'//pastor/analytics/Estudos/estudo_cola_modulo/{ano}'
+                # Verificar se a pasta não existe antes de criar
+                if not os.path.exists(path_salvar):
+                    os.makedirs(path_salvar)
 
+                modelo.salvar(f'{nome_arquivo}',
+                            path_salvar,
+                            app='word')
+                
+                self.notificacao_sucesso()
+
+                # Fechando a tela de relatório
+                global app3
+                app3.destroy()
+
+            except:
+                self.notificacao_falha(message="Ops, algo deu errado. Contate a equipe Analytics ou tente novamente.")
+            
+    def notificacao_sucesso(self):
+        toast = ToastNotification(
+        title="Relatório",
+        message="Relatório salvo com sucesso",
+        bootstyle=SUCCESS,
+        duration=3000,
+        )
+        toast.show_toast()
+
+    def notificacao_falha(self, message):
+        toast = ToastNotification(
+        title="Relatório",
+        message=message,
+        bootstyle=DANGER,
+        duration=3000,
+        )
+        toast.show_toast()
 
     def on_cancel(self):
         """Cancel and close the application."""
@@ -469,10 +553,7 @@ class EstudoCola(ttk.Frame):
 
 
 
-
-
 if __name__ == "__main__":
-
     app = ttk.Window("Estudo de Colusão", "superhero", resizable=(True, True))
     app.geometry('+40+20')
     EstudoCola(app)
