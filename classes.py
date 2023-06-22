@@ -130,10 +130,12 @@ class Colas:
     def obter_todas_colas(self, df):
         dfs = []
         for id_mod in df['ID_MODULO'].unique():
-            aux = df.loc[df['ID_MODULO']==id_mod]
-            lista_cola, rodada_min, rodada_max = self.listar_colas(aux)
+            filtrado = df.loc[df['ID_MODULO']==id_mod]
+            qtd_exames = len(list(filtrado['NOME_DET'].unique()))
+            qtd_parts = len(list(filtrado['PART'].unique()))
+            lista_cola, rodada_min, rodada_max = self.listar_colas(filtrado)
             if type(lista_cola) == pd.core.frame.DataFrame:
-                dfs.append((id_mod, rodada_min, rodada_max, lista_cola))
+                dfs.append((id_mod, qtd_exames, qtd_parts, rodada_min, rodada_max, lista_cola))
         return dfs
 
     def lista_cola_resum(self, df):

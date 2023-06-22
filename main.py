@@ -32,7 +32,6 @@ class EstudoCola(ttk.Frame):
         self.mala_direta = pd.DataFrame()
         self.tabela = pd.DataFrame()
         self.tabela_filtrada = pd.DataFrame()
-        # self.lista_cola = pd.DataFrame()
         self.colors = master_window.style.colors
         self.frame_segmentacao = ttk.Frame()
         self.frame_botao = ttk.Frame()
@@ -57,124 +56,7 @@ class EstudoCola(ttk.Frame):
         self.create_buttonbox(frame=self.frame_botao,
                               action=self.label_id_modulo,
                               cancel_action=self.on_cancel,
-                              tooltip_message='Clique para informar o Módulo')
-            
-
-    def label_id_modulo(self):
-        """Criando combobox de escolha de módulo e botões"""
-        self.ler_parquet()
-        self.excluir_views_frame(frame=self.frame_botao)
-
-        self.create_combobox(frame=self.frame_segmentacao, 
-                             values=self.escolher_modulo(), 
-                             label="ID Módulo: ", 
-                             variable=self.id_modulo)
-        
-        self.create_buttonbox(frame=self.frame_botao,
-                              action=self.create_frame_resum,
-                              cancel_action=self.on_cancel,
-                              tooltip_message='Gerar Resumo')
-    
-    def create_frame_resum(self):
-        """Criando a visualização na tela principal com as informações resumidas e os botões para detalhe 
-        e geração do relatório final (ou mensagem para não cola, se for o caso)."""
-
-        # Se o ano mudar, preciso atualizar o parquet
-        if self.ano.get() != self.ano:
-            self.ler_parquet()
-
-        self.tabela_filtrada = self.filtrar_modulo()
-        self.modulo = self.tabela_filtrada['MODULO'].unique()[0]
-        
-        cola = Colas(self.ano)
-        self.lista_cola, rodada_min, rodada_max = cola.listar_colas(self.tabela_filtrada)
-
-        # Encontrando informações das rodadas
-        self.rodada_min = rodada_min.to_pydatetime()
-        self.rodada_max = rodada_max.to_pydatetime()
-        meses = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
-        self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
-        self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
-
-        # Encontrando informações do módulo
-        self.qtd_exames = len(list(self.tabela_filtrada['NOME_DET'].unique()))
-        self.qtd_parts = len(list(self.tabela_filtrada['PART'].unique()))
-
-        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
-        if type(self.lista_cola) == pd.core.frame.DataFrame:
-            # Encontrando informações das rodadas
-            self.info_rodadas(self.frame_info_rodadas)
-            
-            # Montando tabelas resumo
-            resum = cola.lista_cola_resum(self.lista_cola)
-            analitos = cola.filtrar_analitos(self.lista_cola)
-
-            self.frame_tabela_resumo.pack()
-            self.grupos_a_cadastrar = self.montar_tabela(frame=self.frame_tabela_resumo,
-                                                        reset=True,
-                                                        df=resum,
-                                                        position=0)
-                                        
-            self.montar_tabela(frame=self.frame_tabela_resumo,
-                            reset=False,
-                            df=analitos,
-                            position=1)
-            
-            # Criação dos 3 botões finais
-            self.frame_tres_botoes.pack()
-            self.create_final_buttons(frame=self.frame_tres_botoes,
-                                    reset=True,
-                                    text='Detalhes',
-                                    action=self.tela_detalhes,
-                                    tooltip_message='Mala Direta e Lista de Cola',
-                                    position=0)
-            self.create_final_buttons(frame=self.frame_tres_botoes,
-                                    reset=False,
-                                    text='Relatório',
-                                    action=self.pagina_relatorio,
-                                    tooltip_message='Preencha o relatório para terminar o estudo',
-                                    position=1)
-
-        else:
-            # Excluindo views dos frames de resumo
-            self.excluir_views_frame(self.frame_info_rodadas)
-            self.excluir_views_frame(self.frame_meter)
-            self.excluir_views_frame(self.frame_tabela_resumo)
-            self.excluir_views_frame(self.frame_tres_botoes)
-            
-            ttk.Separator(self.frame_info_rodadas).pack(fill=X)
-            label = ttk.Label(self.frame_info_rodadas, text=f'{self.modulo}')
-            label.config(font=('TkDefaultFont', 15, 'bold'))
-            label.pack()
-
-            texto = f"""
-            👉 Estudo feito com rodadas de {self.rodada_min} até {self.rodada_max}
-
-            👉 Exames analisados: {self.qtd_exames}     
-
-            👉 Participantes Investigados: {self.qtd_parts}
-            """
-            ttk.Label(self.frame_info_rodadas, 
-                      text=texto,
-                      justify='center').pack()
-
-            label = ttk.Label(self.frame_info_rodadas, text=self.lista_cola)
-            label.config(font=('TkDefaultFont', 10, 'bold'), background='red')
-            label.pack(ipady=5)
-    
-    def escolher_modulo(self):
-        """Encontrando possíveis módulos que o usuário pode selecionar com base no ano informado."""
-        try:
-            return list(self.tabela['ID_MODULO'].unique())
-        except:
-            return []
-    
-    def escolher_ano(self):
-        """Lista os arquivos disponíveis para o estudo de cola. São os arquivos do ano em formato .parquet
-        disponíveis no diretório."""
-        arquivos = os.listdir(self.caminho)
-        arquivos = [arquivo[3:7] for arquivo in arquivos]
-        return sorted(set(list(map(int, arquivos))), reverse=True)
+                              tooltip_message='Clique para encontrar todas as colas do ano selecionado')    
 
     def ler_parquet(self):
         """Lê o arquivo .parquet de ano correspondente no diretório e filtra com dados calculados por esstatística robusta pu tradicional,
@@ -191,10 +73,94 @@ class EstudoCola(ttk.Frame):
         except:
             raise Exception(f"'{ano}' não é um ano válido!")
 
-    def filtrar_modulo(self):
-        """Filtra o módulo informado pello usuário."""
-        id_modulo = self.id_modulo.get()
-        return self.tabela.loc[self.tabela['ID_MODULO'] == id_modulo]
+    def todas_colas(self):
+        self.ler_parquet()
+        ano = self.ano.get()
+        self.ano_usado = ano
+        cola = Colas(ano)
+        self.tuplas = cola.obter_todas_colas(self.tabela)
+        self.modulos_com_cola = [id_mod for id_mod, qtd_exames, qtd_parts, rodada_min, rodada_max, lista_cola in self.tuplas]
+
+    def label_id_modulo(self):
+        """Criando combobox de escolha de módulo e botões"""
+        self.todas_colas()
+        self.excluir_views_frame(frame=self.frame_botao)
+
+        self.create_combobox(frame=self.frame_segmentacao, 
+                             values=self.modulos_com_cola, 
+                             label="ID Módulo: ", 
+                             variable=self.id_modulo)
+        
+        self.create_buttonbox(frame=self.frame_botao,
+                              action=self.create_frame_resum,
+                              cancel_action=self.on_cancel,
+                              tooltip_message='Gerar Resumo')
+    
+    def create_frame_resum(self):
+        """Criando a visualização na tela principal com as informações resumidas e os botões para detalhe 
+        e geração do relatório final (ou mensagem para não cola, se for o caso)."""
+
+        # Se o ano mudar, preciso atualizar o parquet
+        if self.ano.get() != self.ano_usado:
+            self.todas_colas()
+
+        # Unpacking da tupla
+        for id_mod, qtd_exames, qtd_parts, rodada_min, rodada_max, lista_cola in self.tuplas:
+            if id_mod == self.id_modulo.get():
+                self.qtd_exames = qtd_exames
+                self.qtd_parts = qtd_parts
+                self.rodada_min = rodada_min
+                self.rodada_max = rodada_max
+                self.lista_cola = lista_cola
+
+        # Encontrando informações das rodadas
+        self.rodada_min = rodada_min.to_pydatetime()
+        self.rodada_max = rodada_max.to_pydatetime()
+        meses = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
+        self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
+        self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
+
+        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
+
+        # Encontrando informações das rodadas
+        self.info_rodadas(self.frame_info_rodadas)
+        
+        # Montando tabelas resumo
+        cola = Colas(self.ano)
+        resum = cola.lista_cola_resum(self.lista_cola)
+        analitos = cola.filtrar_analitos(self.lista_cola)
+
+        self.frame_tabela_resumo.pack()
+        self.grupos_a_cadastrar = self.montar_tabela(frame=self.frame_tabela_resumo,
+                                                     reset=True,
+                                                     df=resum,
+                                                     position=0)                                
+        self.montar_tabela(frame=self.frame_tabela_resumo,
+                           reset=False,
+                           df=analitos,
+                           position=1)
+        
+        # Criação dos 3 botões finais
+        self.frame_tres_botoes.pack()
+        self.create_final_buttons(frame=self.frame_tres_botoes,
+                                reset=True,
+                                text='Detalhes',
+                                action=self.tela_detalhes,
+                                tooltip_message='Mala Direta e Lista de Cola',
+                                position=0)
+        self.create_final_buttons(frame=self.frame_tres_botoes,
+                                reset=False,
+                                text='Relatório',
+                                action=self.pagina_relatorio,
+                                tooltip_message='Preencha o relatório para terminar o estudo',
+                                position=1)
+    
+    def escolher_ano(self):
+        """Lista os arquivos disponíveis para o estudo de cola. São os arquivos do ano em formato .parquet
+        disponíveis no diretório."""
+        arquivos = os.listdir(self.caminho)
+        arquivos = [arquivo[3:7] for arquivo in arquivos]
+        return sorted(set(list(map(int, arquivos))), reverse=True)
     
     def excluir_views_frame(self, frame):
         """Excluir todos os views dentro de um frame para atualização."""
@@ -207,6 +173,7 @@ class EstudoCola(ttk.Frame):
 
         self.qtd_exames_cola = len(list(self.lista_cola['Analito'].unique()))
         self.qtd_parts_cola = len(self.lista_cola['Cliente'].unique())
+        self.modulo = self.lista_cola.loc[0, 'MODULO']
         
         # Escrevendo o Módulo como Título da Segunda Parte
         label = ttk.Label(frame,
@@ -303,7 +270,7 @@ class EstudoCola(ttk.Frame):
             text="Cancel",
             command=cancel_action,
             bootstyle=DANGER,
-            width=6,
+            width=7,
         )
 
         cancel_btn.pack(side=RIGHT, padx=5)
@@ -314,7 +281,7 @@ class EstudoCola(ttk.Frame):
             text="Submit",
             command=action,
             bootstyle=SUCCESS,
-            width=6,
+            width=7,
         )
 
         submit_btn.pack(side=RIGHT, padx=5)
@@ -558,4 +525,3 @@ if __name__ == "__main__":
     app.geometry('+40+20')
     EstudoCola(app)
     app.mainloop()
-
