@@ -8,6 +8,9 @@ from ttkbootstrap.tableview import Tableview
 from ttkbootstrap.validation import add_regex_validation
 from datetime import datetime
 import os
+# Chamando explicitamente as bibliotecas abaixo para não gerar erro no pyinstaller
+import jinja2
+from pyarrow.vendored.version import Version
 
 
 hoje = datetime.now()
@@ -41,7 +44,7 @@ class EstudoCola(ttk.Frame):
         self.frame_tres_botoes = ttk.Frame()
         
 
-        label = ttk.Label(self, text="Informe o ano e o ID do módulo para começar o estudo!")
+        label = ttk.Label(self, text="Informe o ano e depois o ID do módulo para começar o estudo!")
         label.config(font=('TkDefaultFont', 10, 'bold'))
         label.pack()
         ttk.Separator(self).pack(fill=X)
@@ -97,6 +100,27 @@ class EstudoCola(ttk.Frame):
                               tooltip_message='Gerar Resumo')
     
     def create_frame_resum(self):
+        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
+
+        if self.id_modulo.get() in self.modulos_com_cola:
+            self.exame_com_cola()
+
+        else:
+            self.exame_sem_cola()
+            
+    def exame_sem_cola(self):
+        self.excluir_views_frame(self.frame_info_rodadas)
+        self.excluir_views_frame(self.frame_meter)
+        self.excluir_views_frame(self.frame_tabela_resumo)
+        self.excluir_views_frame(self.frame_tres_botoes)
+
+        ttk.Separator(self.frame_info_rodadas).pack(fill=X)
+        
+        label = ttk.Label(self.frame_info_rodadas, text=f'Sem colas encontradas para o módulo {int(self.id_modulo.get())}')
+        label.config(font=('TkDefaultFont', 10, 'bold'), background='red')
+        label.pack(ipady=5)
+
+    def exame_com_cola(self):
         """Criando a visualização na tela principal com as informações resumidas e os botões para detalhe 
         e geração do relatório final (ou mensagem para não cola, se for o caso)."""
 
@@ -120,7 +144,6 @@ class EstudoCola(ttk.Frame):
         self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
         self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
 
-        self.frame_info_rodadas.pack(fill=X, padx=10, pady=10)
 
         # Encontrando informações das rodadas
         self.info_rodadas(self.frame_info_rodadas)
@@ -388,8 +411,6 @@ class EstudoCola(ttk.Frame):
         global app3
         if app3 and app3.winfo_exists():
             app3.withdraw()
-        
-
         app3 = ttk.Toplevel(title='Gerar Relatório')
         app3.geometry('+500+200')
 
@@ -460,7 +481,7 @@ class EstudoCola(ttk.Frame):
         app3.mainloop()
 
     def gerar_relatorio(self):
-        path = os.getcwd()+'/Modelo.docx'
+        path = '//pastor/analytics/Estudos/01-Máscaras/04 Estudo de colusao/Modelo.docx'
         resp = self.nome.get().title()
         id_mod = int(self.id_modulo.get())
         ano = int(self.ano.get())
@@ -492,8 +513,10 @@ class EstudoCola(ttk.Frame):
                 global app3
                 app3.destroy()
 
-            except:
+            except Exception as e:
                 self.notificacao_falha(message="Ops, algo deu errado. Contate a equipe Analytics ou tente novamente.")
+                print(f"Unexpected {e=}, {type(e)=}")
+                raise
             
     def notificacao_sucesso(self):
         toast = ToastNotification(
@@ -522,6 +545,7 @@ class EstudoCola(ttk.Frame):
 
 if __name__ == "__main__":
     app = ttk.Window("Estudo de Colusão", "superhero", resizable=(True, True))
+    # app.iconbitmap('logo.ico')
     app.geometry('+40+20')
     EstudoCola(app)
     app.mainloop()
