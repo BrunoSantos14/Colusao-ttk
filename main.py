@@ -138,16 +138,15 @@ class EstudoCola(ttk.Frame):
                 self.lista_cola = lista_cola
 
         # Encontrando informações das rodadas
-        self.rodada_min = rodada_min.to_pydatetime()
-        self.rodada_max = rodada_max.to_pydatetime()
         meses = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
         self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
         self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
+        print(self.rodada_min, self.rodada_max)
 
 
         # Encontrando informações das rodadas
         self.info_rodadas(self.frame_info_rodadas)
-        
+
         # Montando tabelas resumo
         cola = Colas(self.ano)
         resum = cola.lista_cola_resum(self.lista_cola)
