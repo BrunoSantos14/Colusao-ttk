@@ -1,2 +1,6 @@
 venv/
+dist/
+build/
 teste.ipynb
+main.spec
+__pycache__/

@@ -1,5 +1,6 @@
 from classes import Colas, ModeloColusao, CreateToolTip
 import pandas as pd
+import requests
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
@@ -141,8 +142,6 @@ class EstudoCola(ttk.Frame):
         meses = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
         self.rodada_min = f'{meses[self.rodada_min.month]}/{self.rodada_min.year}'
         self.rodada_max = f'{meses[self.rodada_max.month]}/{self.rodada_max.year}'
-        print(self.rodada_min, self.rodada_max)
-
 
         # Encontrando informações das rodadas
         self.info_rodadas(self.frame_info_rodadas)
@@ -391,7 +390,23 @@ class EstudoCola(ttk.Frame):
     def abrir_mala_direta(self):
         """Lendo a mala direta e filtrando com os participantes encontrados no estudo."""
         # Chamando a mala direta
-        mala_direta = pd.read_csv('//Pastor/analytics/MalaDireta.csv', sep=';', encoding='latin1')
+        url = 'https://api.controllab.com/consulta/parceiros'
+        response = requests.get(url, auth=('controllab', 'admin'))
+        json = response.json()
+        mala_direta = pd.json_normalize(json)
+
+        # Mudanças necessárias
+        dic = {'id_parceiro': 'ID',
+               'nome_fantasia': 'Nome fantasia',
+               'grupo_representacao': 'Grupo representação',
+               'grupo_empresarial': 'Grupo empresarial',
+               'nome_pais': 'País',
+               'sigla_estado': 'UF',
+               'nome_cidade': 'Cidade',
+               'end_bairro': 'Bairro',
+               'ativo_geral': 'Ativo Geral',
+               }
+        mala_direta.rename(columns=dic, inplace=True)
         mala_direta = mala_direta[['ID', 'Nome fantasia', 'Grupo representação', 'Grupo empresarial', 'País', 'UF', 'Cidade', 'Bairro', 'Ativo Geral']]
         mala_direta.drop_duplicates('ID', keep='first', inplace=True)
         for coluna in ['Nome fantasia', 'Grupo representação', 'Grupo empresarial', 'País', 'UF', 'Cidade', 'Bairro', 'Ativo Geral']:
