@@ -19,6 +19,7 @@ app2 = None
 app3 = None
 
 
+
 class EstudoCola(ttk.Frame):
     def __init__(self, master_window):
         super().__init__(master_window, padding=(20, 10))
