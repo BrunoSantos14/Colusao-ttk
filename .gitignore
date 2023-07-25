@@ -1,6 +1,7 @@
-venv/
-dist/
-build/
+\venv
+\dist
+\build
+.env
 teste.ipynb
 main.spec
-__pycache__/
+\__pycache__

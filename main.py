@@ -8,6 +8,7 @@ from ttkbootstrap.toast import ToastNotification
 from ttkbootstrap.tableview import Tableview
 from ttkbootstrap.validation import add_regex_validation
 from datetime import datetime
+from dotenv import load_dotenv
 import os
 # Chamando explicitamente as bibliotecas abaixo para não gerar erro no pyinstaller
 import jinja2
@@ -17,7 +18,6 @@ from pyarrow.vendored.version import Version
 hoje = datetime.now()
 app2 = None
 app3 = None
-
 
 
 class EstudoCola(ttk.Frame):
@@ -64,7 +64,7 @@ class EstudoCola(ttk.Frame):
                               tooltip_message='Clique para encontrar todas as colas do ano selecionado')    
 
     def ler_parquet(self):
-        """Lê o arquivo .parquet de ano correspondente no diretório e filtra com dados calculados por esstatística robusta pu tradicional,
+        """Lê o arquivo .parquet de ano correspondente no diretório e filtra com dados calculados por estatística robusta ou tradicional,
         além de manter somente onde o usuário não inseriu resposta."""
         ano = self.ano.get()
         try:
@@ -79,6 +79,7 @@ class EstudoCola(ttk.Frame):
             raise Exception(f"'{ano}' não é um ano válido!")
 
     def todas_colas(self):
+        """Listando todas as colas do ano."""
         self.ler_parquet()
         ano = self.ano.get()
         self.ano_usado = ano
@@ -391,8 +392,11 @@ class EstudoCola(ttk.Frame):
     def abrir_mala_direta(self):
         """Lendo a mala direta e filtrando com os participantes encontrados no estudo."""
         # Chamando a mala direta
-        url = 'https://api.controllab.com/consulta/parceiros'
-        response = requests.get(url, auth=('controllab', 'admin'))
+        load_dotenv(override=True)
+        url = os.getenv("URL_API")
+        user = os.getenv("USER")
+        password = os.getenv("PASSWORD")
+        response = requests.get(url, auth=(user, password))
         json = response.json()
         mala_direta = pd.json_normalize(json)
 
